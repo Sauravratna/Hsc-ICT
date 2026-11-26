@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HSC ICT মডেল টেস্ট</title>
+<style>
+  :root { --bg:#f5f6fa; --card:#fff; --text:#1f2430; --muted:#6b7280; --primary:#2563eb; --ok:#16a34a; --bad:#dc2626; --line:#e5e7eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Noto Sans Bengali","SolaimanLipi",system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+  .wrap { max-width:760px; margin:0 auto; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  h2 { font-size:18px; margin:0 0 8px; }
+  p.muted { color:var(--muted); margin:0 0 12px; }
+  input[type=text] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:16px; margin-bottom:10px; font-family:inherit; }
+  button { background:var(--primary); color:#fff; border:0; border-radius:8px; padding:11px 18px; font-size:16px; cursor:pointer; font-family:inherit; }
+  button.sec { background:#e5e7eb; color:var(--text); }
+  button:disabled { opacity:.5; }
+  #timerBar { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line); padding:8px 16px; display:flex; justify-content:space-between; align-items:center; font-weight:600; }
+  #timer.low { color:var(--bad); }
+  .q { font-weight:600; margin-bottom:8px; white-space:pre-wrap; }
+  pre.code { background:#0f172a; color:#e2e8f0; padding:10px 12px; border-radius:8px; overflow-x:auto; font-size:14px; margin:0 0 10px; }
+  label.opt { display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; cursor:pointer; }
+  label.opt input { margin-top:6px; }
+  label.opt.correct { background:#dcfce7; border-color:var(--ok); }
+  label.opt.wrong { background:#fee2e2; border-color:var(--bad); }
+  .score { font-size:34px; font-weight:700; color:var(--primary); }
+  .note { font-size:14px; color:var(--muted); margin-top:6px; }
+  .hide { display:none !important; }
+  .ropt { padding:8px 10px; border:1px solid var(--line); border-radius:8px; margin-bottom:6px; }
+  .ropt.correct { background:#dcfce7; border-color:var(--ok); font-weight:600; }
+  .ropt.wrong { background:#fee2e2; border-color:var(--bad); }
+  .badge { display:inline-block; font-size:13px; font-weight:700; padding:2px 10px; border-radius:20px; margin-bottom:8px; }
+  .badge.ok { background:#dcfce7; color:var(--ok); }
+  .badge.bad { background:#fee2e2; color:var(--bad); }
+  .badge.skip { background:#fef9c3; color:#a16207; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div id="timerBar" class="hide">
+  <span id="who"></span>
+  <span>⏱ <span id="timer">00:00</span></span>
+</div>
+
+<div class="wrap">
+
+  <!-- শুরুর পেজ -->
+  <div id="start" class="card">
+    <h1>HSC ICT মডেল টেস্ট</h1>
+    <p class="muted">মোট প্রশ্ন: <span id="totalQ"></span>টি &nbsp;|&nbsp; সময়: <span id="durTxt"></span> মিনিট &nbsp;|&nbsp; প্রতি প্রশ্নে ১ নম্বর (ভুল উত্তরে কাটা যাবে না)</p>
+    <input type="text" id="name" placeholder="তোমার নাম">
+    <input type="text" id="roll" placeholder="রোল নম্বর">
+    <button onclick="startExam()">পরীক্ষা শুরু করো</button>
+  </div>
+
+  <!-- পরীক্ষা -->
+  <div id="exam" class="hide">
+    <div id="questions"></div>
+    <button onclick="submitExam(false)">সাবমিট করো</button>
+  </div>
+
+  <!-- ফলাফল -->
+  <div id="result" class="hide">
+    <div class="card">
+      <div id="resName" class="muted"></div>
+      <div class="score" id="resScore"></div>
+      <div id="resDetail" class="muted"></div>
+      <div class="row" style="margin-top:12px">
+        <button onclick="copyResult()">ফলাফল কপি করো</button>
+        <button class="sec" onclick="location.reload()">আবার শুরু</button>
+      </div>
+      <div class="note">স্কোর স্ক্রিনশট/কপি করে শিক্ষককে পাঠাও।</div>
+    </div>
+    <h2>উত্তর পর্যালোচনা</h2>
+    <div id="filters" class="row" style="margin-bottom:12px">
+      <button onclick="filterReview('all', this)">সব</button>
+      <button class="sec" onclick="filterReview('bad', this)">ভুল</button>
+      <button class="sec" onclick="filterReview('ok', this)">সঠিক</button>
+      <button class="sec" onclick="filterReview('skip', this)">ফাঁকা</button>
+    </div>
+    <div id="review"></div>
+  </div>
+
+</div>
+
+<div id="dlg" class="hide" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="card" style="max-width:380px;width:100%;margin:0">
+    <div id="dlgMsg" style="margin-bottom:14px;white-space:pre-wrap"></div>
+    <div class="row">
+      <button id="dlgOk">ঠিক আছে</button>
+      <button id="dlgCancel" class="sec hide">বাতিল</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== সেটিংস ====== */
+const DURATION_MIN = 25;   // পরীক্ষার সময় (মিনিট) — এখানে বদলাও
+const LETTERS = ["ক","খ","গ","ঘ"];
+
+/* ====== প্রশ্নব্যাংক (a = সঠিক অপশনের ইনডেক্স, ০ = ক) ====== */
+const Q = [
+ {q:"ভার্চুয়াল রিয়েলিটির ডিভাইস কোনগুলো?\ni. হেড মাউন্টেড ডিসপ্লে\nii. ডেটা গ্লাভস\niii. ফ্ল্যাটবেড স্ক্যানার", o:["i ও ii","i ও iii","ii ও iii","i, ii ও iii"], a:0, e:"ফ্ল্যাটবেড স্ক্যানার VR ডিভাইস নয়।"},
+ {q:"সিজার সাইফারে শিফট ৩ হলে \"CAT\" এর এনক্রিপ্টেড রূপ কোনটি?", o:["FDW","FDV","EDW","FCW"], a:0, e:"C→F, A→D, T→W"},
+ {q:"৬টি নোডের একটি ফুল মেশ টপোলজিতে মোট লিংক কয়টি?", o:["১২","১৫","৩০","৩৬"], a:1, e:"n(n-1)/2 = 6×5/2 = 15"},
+ {q:"নিচের কোনগুলো সঠিক?\ni. ওয়াকিটকি হাফ-ডুপ্লেক্স\nii. টেলিফোন ফুল-ডুপ্লেক্স\niii. টেলিভিশন সম্প্রচার ফুল-ডুপ্লেক্স", o:["i ও ii","i ও iii","ii ও iii","i, ii ও iii"], a:0, e:"টিভি সম্প্রচার সিমপ্লেক্স।"},
+ {q:"ফাইবার অপটিক ক্যাবলে সিগন্যাল চলার মূলনীতি কী?", o:["আলোর পূর্ণ অভ্যন্তরীণ প্রতিফলন","তড়িৎচুম্বকীয় আবেশ","আলোর প্রতিসরণ","আলোর ব্যবর্তন"], a:0, e:""},
+ {q:"IPv6 ঠিকানা কত বিটের এবং কয়টি হেক্সাডেসিমেল গ্রুপে লেখা হয়?", o:["১২৮ বিট, ৮ গ্রুপ","৬৪ বিট, ৪ গ্রুপ","১২৮ বিট, ৪ গ্রুপ","২৫৬ বিট, ৮ গ্রুপ"], a:0, e:""},
+ {q:"(1101.101)₂ এর দশমিক মান কত?", o:["13.625","13.5","11.625","13.125"], a:0, e:"13 + 0.5 + 0.125 = 13.625"},
+ {q:"(ABC)₁₆ এর অষ্টমিক মান কত?", o:["5274","5724","5247","2574"], a:0, e:"1010 1011 1100 → 101 010 111 100 → 5274"},
+ {q:"৮-বিট 2's complement পদ্ধতিতে প্রকাশযোগ্য সংখ্যার পরিসর কত?", o:["-127 থেকে +127","-128 থেকে +127","-128 থেকে +128","-256 থেকে +255"], a:1, e:""},
+ {q:"(10010101) BCD কোডের দশমিক মান কত?", o:["95","149","85","105"], a:0, e:"1001 = 9, 0101 = 5"},
+ {q:"F = AB + AB' + A'B এর সরলীকৃত রূপ কোনটি?", o:["A + B","AB","A' + B","A"], a:0, e:"A + A'B = A + B"},
+ {q:"(5)₁₀ এর Excess-3 কোড কোনটি?", o:["0101","1000","0110","1011"], a:1, e:"5 + 3 = 8 = 1000"},
+ {q:"ফুল অ্যাডারে A = 1, B = 1, Cin = 1 হলে Sum ও Carry কত?", o:["1, 1","0, 1","1, 0","0, 0"], a:0, e:""},
+ {q:"Race Around Condition কোন ফ্লিপ-ফ্লপে দেখা যায়?", o:["SR","D","JK","T"], a:2, e:"J = K = 1 এবং ক্লক পালস প্রশস্ত হলে।"},
+ {q:"নিচের কোনগুলো সঠিক?\ni. ASCII-7 এ ১২৮টি ক্যারেক্টার কোড করা যায়\nii. ১৬-বিট ইউনিকোডে ৬৫,৫৩৬টি ক্যারেক্টার কোড করা যায়\niii. EBCDIC হলো ৭-বিট কোড", o:["i ও ii","i ও iii","ii ও iii","i, ii ও iii"], a:0, e:"EBCDIC ৮-বিট কোড।"},
+ {q:"৩২টি ইনপুটের মাল্টিপ্লেক্সারে সিলেক্ট লাইন কয়টি?", o:["৪","৫","৬","৩২"], a:1, e:"2⁵ = 32"},
+ {q:"কোনগুলো একক (জোড়াবিহীন) ট্যাগ?\ni. <br>\nii. <hr>\niii. <p>", o:["i ও ii","i ও iii","ii ও iii","i, ii ও iii"], a:0, e:"<p> জোড়া ট্যাগ।"},
+ {q:"টেবিলের একটি সেল দুটি কলাম জুড়ে দখল করতে কোন অ্যাট্রিবিউট ব্যবহার হয়?", o:["rowspan","colspan","cellspan","merge"], a:1, e:""},
+ {q:"আউটপুট কত?", code:"int i, sum = 0;\nfor(i=1; i<=5; i++){\n  if(i==3) continue;\n  sum += i;\n}\nprintf(\"%d\", sum);", o:["15","12","9","10"], a:1, e:"1+2+4+5 = 12"},
+ {q:"আউটপুট কত?", code:"int i = 1, s = 0;\nwhile(i <= 10){\n  s += i;\n  i += 2;\n}\nprintf(\"%d\", s);", o:["55","25","30","20"], a:1, e:"1+3+5+7+9 = 25"},
+ {q:"আউটপুট কী?", code:"int x = 2;\nswitch(x){\n  case 1: printf(\"A\");\n  case 2: printf(\"B\");\n  case 3: printf(\"C\"); break;\n  default: printf(\"D\");\n}", o:["B","BC","BCD","C"], a:1, e:"case 2 এ break নেই, তাই case 3 ও চলে।"},
+ {q:"আউটপুট কত?", code:"int a[5] = {1, 2, 3};\nprintf(\"%d\", a[2] + a[4]);", o:["3","5","4","গার্বেজ মান"], a:0, e:"বাকি উপাদান 0 হয়ে যায়, তাই 3 + 0 = 3"},
+ {q:"আউটপুট কত?", code:"float f = 5/2*2.0;\nprintf(\"%.1f\", f);", o:["5.0","4.0","2.0","4.5"], a:1, e:"5/2 = 2 (পূর্ণসংখ্যা), 2 × 2.0 = 4.0"},
+ {q:"প্রাইমারি কী সম্পর্কে কোনগুলো সঠিক?\ni. মান ইউনিক হয়\nii. NULL হতে পারে না\niii. একটি টেবিলে একাধিক প্রাইমারি কী থাকতে পারে", o:["i ও ii","i ও iii","ii ও iii","i, ii ও iii"], a:0, e:"একটি টেবিলে প্রাইমারি কী একটাই।"},
+ {q:"একটি টেবিলে ৮টি ফিল্ড এবং ১৫টি রেকর্ড আছে। মোট ডেটা আইটেম কয়টি?", o:["২৩","১২০","১৫","৮"], a:1, e:"8 × 15 = 120"}
+];
+
+/* ====== লজিক ====== */
+let studentName = "", studentRoll = "", timeLeft = 0, tick = null, submitted = false;
+const $ = id => document.getElementById(id);
+const bn = n => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
+
+$("totalQ").textContent = bn(Q.length);
+$("durTxt").textContent = bn(DURATION_MIN);
+
+function startExam() {
+  studentName = $("name").value.trim();
+  studentRoll = $("roll").value.trim();
+  if (!studentName || !studentRoll) { showDialog("নাম ও রোল দুটোই লিখতে হবে।", "ঠিক আছে"); return; }
+
+  $("start").classList.add("hide");
+  $("exam").classList.remove("hide");
+  $("timerBar").classList.remove("hide");
+  $("who").textContent = studentName + " (রোল: " + studentRoll + ")";
+
+  const box = $("questions");
+  Q.forEach((item, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const q = document.createElement("div");
+    q.className = "q";
+    q.textContent = bn(i + 1) + ". " + item.q;
+    card.appendChild(q);
+    if (item.code) {
+      const pre = document.createElement("pre");
+      pre.className = "code";
+      pre.textContent = item.code;
+      card.appendChild(pre);
+    }
+    item.o.forEach((opt, j) => {
+      const lab = document.createElement("label");
+      lab.className = "opt";
+      const r = document.createElement("input");
+      r.type = "radio"; r.name = "q" + i; r.value = j;
+      const sp = document.createElement("span");
+      sp.textContent = LETTERS[j] + ") " + opt;
+      lab.appendChild(r); lab.appendChild(sp);
+      card.appendChild(lab);
+    });
+    box.appendChild(card);
+  });
+
+  timeLeft = DURATION_MIN * 60;
+  updateTimer();
+  tick = setInterval(() => {
+    timeLeft--;
+    updateTimer();
+    if (timeLeft <= 0) submitExam(true);
+  }, 1000);
+}
+
+function updateTimer() {
+  const m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+  const t = $("timer");
+  t.textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  t.classList.toggle("low", timeLeft <= 60);
+}
+
+function submitExam(auto) {
+  if (submitted) return;
+  const picked = Q.map((_, i) => {
+    const c = document.querySelector('input[name="q' + i + '"]:checked');
+    return c ? Number(c.value) : -1;
+  });
+  const unanswered = picked.filter(x => x === -1).length;
+  if (!auto && unanswered > 0) {
+    showDialog(bn(unanswered) + "টি প্রশ্নের উত্তর দাওনি। তবুও সাবমিট করবে?", "হ্যাঁ, সাবমিট", () => finalize(picked, unanswered), "ফিরে যাই");
+    return;
+  }
+  finalize(picked, unanswered);
+}
+
+function finalize(picked, unanswered) {
+  if (submitted) return;
+  submitted = true;
+  clearInterval(tick);
+  $("exam").classList.add("hide");
+  $("timerBar").classList.add("hide");
+  $("result").classList.remove("hide");
+  window.scrollTo(0, 0);
+
+  let correct = 0, wrong = 0;
+  picked.forEach((p, i) => { if (p === -1) return; p === Q[i].a ? correct++ : wrong++; });
+
+  $("resName").textContent = studentName + " (রোল: " + studentRoll + ")";
+  $("resScore").textContent = bn(correct) + " / " + bn(Q.length);
+  $("resDetail").textContent = "সঠিক: " + bn(correct) + " | ভুল: " + bn(wrong) + " | উত্তর দেয়নি: " + bn(unanswered);
+  window._resultText = "HSC ICT মডেল টেস্ট\nনাম: " + studentName + "\nরোল: " + studentRoll + "\nস্কোর: " + correct + "/" + Q.length + " (সঠিক " + correct + ", ভুল " + wrong + ", ফাঁকা " + unanswered + ")";
+
+  const rv = $("review");
+  Q.forEach((item, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const q = document.createElement("div");
+    q.className = "q";
+    q.textContent = bn(i + 1) + ". " + item.q;
+    card.appendChild(q);
+    if (item.code) {
+      const pre = document.createElement("pre");
+      pre.className = "code";
+      pre.textContent = item.code;
+      card.appendChild(pre);
+    }
+    item.o.forEach((opt, j) => {
+      const d = document.createElement("div");
+      d.className = "ropt" + (j === item.a ? " correct" : (j === picked[i] ? " wrong" : ""));
+      let tag = "";
+      if (j === item.a) tag += "  ✔ সঠিক উত্তর";
+      if (j === picked[i]) tag += (j === item.a ? "  (তুমি এটাই দিয়েছ)" : "  ✘ তোমার উত্তর");
+      d.textContent = LETTERS[j] + ") " + opt + tag;
+      card.appendChild(d);
+    });
+    if (item.e) {
+      const n = document.createElement("div");
+      n.className = "note";
+      n.textContent = "ব্যাখ্যা: " + item.e;
+      card.appendChild(n);
+    }
+    const st = picked[i] === -1 ? "skip" : (picked[i] === item.a ? "ok" : "bad");
+    card.dataset.status = st;
+    const badge = document.createElement("div");
+    badge.className = "badge " + st;
+    badge.textContent = st === "ok" ? "✔ সঠিক" : (st === "bad" ? "✘ ভুল" : "— উত্তর দাওনি");
+    card.insertBefore(badge, card.firstChild);
+    rv.appendChild(card);
+  });
+}
+
+function filterReview(type, btn) {
+  document.querySelectorAll("#review .card").forEach(c => {
+    c.classList.toggle("hide", type !== "all" && c.dataset.status !== type);
+  });
+  document.querySelectorAll("#filters button").forEach(b => b.classList.add("sec"));
+  btn.classList.remove("sec");
+}
+
+function copyResult() {
+  const t = window._resultText || "";
+  const done = () => showDialog("ফলাফল কপি হয়েছে!", "ঠিক আছে");
+  const fallback = () => {
+    const ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) { showDialog(t, "ঠিক আছে"); }
+    document.body.removeChild(ta);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, fallback);
+  else fallback();
+}
+
+/* alert/confirm ব্লক থাকলেও কাজ করবে — নিজস্ব পপআপ */
+function showDialog(msg, okText, onOk, cancelText) {
+  $("dlgMsg").textContent = msg;
+  const ok = $("dlgOk"), cancel = $("dlgCancel");
+  ok.textContent = okText || "ঠিক আছে";
+  cancel.textContent = cancelText || "";
+  cancel.classList.toggle("hide", !cancelText);
+  ok.onclick = () => { $("dlg").classList.add("hide"); if (onOk) onOk(); };
+  cancel.onclick = () => $("dlg").classList.add("hide");
+  $("dlg").classList.remove("hide");
+}
+</script>
+</body>
+</html>
